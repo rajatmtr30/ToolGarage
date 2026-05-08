@@ -1,0 +1,11 @@
+node_modules
+
+# testing
+/coverage
+/node_modules
+
+/.npmrc
+
+.DS_Store
+
+.vscode

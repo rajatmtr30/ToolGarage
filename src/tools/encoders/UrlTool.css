@@ -1,0 +1,75 @@
+.url-tool-container {
+  @apply flex flex-col gap-4;
+}
+
+.url-tool-header {
+  @apply text-lg font-semibold;
+}
+
+.url-tool-description {
+  @apply text-xs text-muted-foreground;
+}
+
+.url-tool-actions {
+  @apply flex gap-2 flex-wrap;
+}
+
+.url-tool-grid {
+  @apply grid grid-cols-2 gap-3;
+}
+
+.url-tool-col {
+  @apply flex flex-col gap-1;
+}
+
+.url-tool-label {
+  @apply text-xs font-medium text-muted-foreground uppercase tracking-wide;
+}
+
+.url-tool-textarea {
+  @apply min-h-[180px] font-mono text-sm resize-none;
+}
+
+.url-tool-textarea-readonly {
+  @apply min-h-[180px] font-mono text-sm resize-none bg-muted/30;
+}
+
+.url-tool-result-header {
+  @apply flex items-center justify-between;
+}
+
+.url-tool-result-actions {
+  @apply flex gap-1;
+}
+
+.url-tool-roundtrip-btn {
+  @apply h-6 px-2 text-xs;
+}
+
+.url-tool-table-container {
+  @apply rounded-md border border-border overflow-hidden;
+}
+
+.url-tool-table {
+  @apply w-full text-sm;
+}
+
+.url-tool-table-head {
+  @apply bg-muted/50;
+}
+
+.url-tool-th {
+  @apply text-left px-3 py-2 font-medium text-muted-foreground text-xs;
+}
+
+.url-tool-tr {
+  @apply border-t border-border;
+}
+
+.url-tool-td-key {
+  @apply px-3 py-2 font-mono text-xs text-primary;
+}
+
+.url-tool-td-val {
+  @apply px-3 py-2 font-mono text-xs;
+}
