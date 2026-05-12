@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { explainRegex } from '@/lib/regexExplainer'
 
 interface Match {
   index: number
@@ -49,6 +51,7 @@ export default function RegexTool() {
   const [pattern, setPattern] = useState('[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}')
   const [flags, setFlags] = useState({ global: true, ignoreCase: false, multiline: false })
   const [testText, setTestText] = useState(SAMPLE_TEXT)
+  const [replacement, setReplacement] = useState('')
 
   const flagStr = [flags.global ? 'g' : '', flags.ignoreCase ? 'i' : '', flags.multiline ? 'm' : ''].filter(Boolean).join('')
 
@@ -78,6 +81,25 @@ export default function RegexTool() {
       return { matches: [], error: e instanceof Error ? e.message : "That regex doesn't compile — check brackets and escapes.", regex: null }
     }
   }, [pattern, flagStr, testText, flags.global])
+
+  const explanationTokens = useMemo(() => {
+    if (!pattern) return []
+    try {
+       return explainRegex(pattern)
+    } catch {
+       return []
+    }
+  }, [pattern])
+
+  const replacedText = useMemo(() => {
+    if (!regex || !pattern) return testText
+    try {
+      const parsedReplacement = replacement.replace(/\\n/g, '\n').replace(/\\t/g, '\t')
+      return testText.replace(regex, parsedReplacement)
+    } catch {
+      return testText
+    }
+  }, [regex, pattern, testText, replacement])
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -145,16 +167,55 @@ export default function RegexTool() {
             spellCheck={false}
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <Label>Matches highlighted in context</Label>
-          <div className="min-h-[200px] rounded-md border border-border bg-muted/20 p-3 font-mono text-sm whitespace-pre-wrap overflow-auto">
-            {error ? (
-              <span className="text-destructive">{error}</span>
-            ) : (
-              highlightMatches(testText, matches)
-            )}
-          </div>
-        </div>
+        <Tabs defaultValue="matches" className="flex flex-col gap-1 min-w-0">
+          <TabsList className="h-8 w-fit self-start">
+            <TabsTrigger value="matches" className="text-xs px-3">Matches in context</TabsTrigger>
+            <TabsTrigger value="replace" className="text-xs px-3">Replace</TabsTrigger>
+            <TabsTrigger value="explanation" className="text-xs px-3">Plain English</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="matches" className="mt-0">
+            <div className="min-h-[200px] h-[200px] rounded-md border border-border bg-muted/20 p-3 font-mono text-sm whitespace-pre-wrap overflow-auto">
+              {error ? (
+                <span className="text-destructive">{error}</span>
+              ) : (
+                highlightMatches(testText, matches)
+              )}
+            </div>
+          </TabsContent>
+          <TabsContent value="replace" className="mt-0 flex flex-col gap-2">
+            <div className="flex gap-2">
+              <Input
+                value={replacement}
+                onChange={(e) => setReplacement(e.target.value)}
+                placeholder="Replacement (e.g. $1 or \n)"
+                className="font-mono text-xs h-8"
+              />
+              <CopyButton text={replacedText} size="sm" />
+            </div>
+            <div className="min-h-[160px] h-[160px] rounded-md border border-border bg-muted/20 p-3 font-mono text-sm whitespace-pre-wrap overflow-auto">
+              {error ? (
+                <span className="text-destructive">{error}</span>
+              ) : (
+                replacedText
+              )}
+            </div>
+          </TabsContent>
+          <TabsContent value="explanation" className="mt-0">
+            <div className="min-h-[200px] h-[200px] rounded-md border border-border bg-muted/20 overflow-auto">
+              {explanationTokens.length === 0 ? (
+                 <div className="p-4 text-sm text-muted-foreground">Type a pattern to see its explanation.</div>
+              ) : (
+                explanationTokens.map((t, i) => (
+                  <div key={i} className="flex items-start gap-3 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/30">
+                     <div className="font-mono text-sm font-semibold text-primary break-all min-w-[30px] shrink-0 bg-primary/10 rounded px-1.5 text-center">{t.text}</div>
+                     <div className="text-sm text-muted-foreground">{t.description}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {matches.length > 0 && (

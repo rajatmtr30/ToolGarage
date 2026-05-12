@@ -10,6 +10,25 @@ export default defineConfig({
       'crypto': path.resolve(__dirname, './src/lib/crypto-polyfill.ts'),
     },
   },
+  optimizeDeps: {
+    include: [
+      '@monaco-editor/react',
+      'monaco-editor',
+      'crypto-js',
+      'mermaid',
+      '@faker-js/faker',
+      'uuid',
+      'colord',
+      'dayjs',
+      'sql-formatter',
+      'lucide-react',
+      'fast-xml-parser',
+      'js-yaml',
+      'qrcode.react',
+      'jsonrepair',
+      'bcryptjs'
+    ]
+  },
   build: {
     rollupOptions: {
       output: {

@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { decodeJwt, decodeProtectedHeader } from 'jose'
+import { useState, useEffect } from 'react'
+import { decodeJwt, decodeProtectedHeader, jwtVerify, importSPKI, importX509 } from 'jose'
 import { PrivacyBanner } from '@/components/PrivacyBanner'
 import { CopyButton } from '@/components/CopyButton'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { CheckCircle2, XCircle, Clock, ShieldCheck, ShieldAlert } from 'lucide-react'
 
 const SAMPLE_JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjk5OTk5OTk5OTl9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
 
@@ -40,14 +40,17 @@ function ExpiryBadge({ exp }: { exp?: number }) {
 export default function JwtTool() {
   const [token, setToken] = useState(SAMPLE_JWT)
   const [error, setError] = useState('')
+  const [secret, setSecret] = useState('')
+  const [verifyResult, setVerifyResult] = useState<boolean | null>(null)
+  const [verifyError, setVerifyError] = useState('')
 
-  let header: Record<string, unknown> | null = null
-  let payload: Record<string, unknown> | null = null
+  let header: Record<string, any> | null = null
+  let payload: Record<string, any> | null = null
 
   if (token.trim()) {
     try {
-      header = decodeProtectedHeader(token.trim()) as Record<string, unknown>
-      payload = decodeJwt(token.trim()) as Record<string, unknown>
+      header = decodeProtectedHeader(token.trim()) as Record<string, any>
+      payload = decodeJwt(token.trim()) as Record<string, any>
       if (error) setError('')
     } catch (e) {
       if (!error) setError(e instanceof Error ? e.message : "That doesn't look like a valid JWT — expected three dot-separated Base64URL parts.")
@@ -56,6 +59,54 @@ export default function JwtTool() {
 
   const parts = token.trim().split('.')
   const isValidStructure = parts.length === 3
+
+  useEffect(() => {
+    async function verify() {
+      if (!token.trim() || !secret.trim() || !isValidStructure || error) {
+        setVerifyResult(null)
+        setVerifyError('')
+        return
+      }
+      try {
+        const hdr = decodeProtectedHeader(token.trim())
+        const alg = hdr.alg
+        if (!alg || alg === 'none') {
+          setVerifyResult(false)
+          setVerifyError('Unsecured JWT (alg: none) cannot be verified.')
+          return
+        }
+
+        let key
+        if (alg.startsWith('HS')) {
+          key = new TextEncoder().encode(secret)
+        } else if (alg.startsWith('RS') || alg.startsWith('PS') || alg.startsWith('ES')) {
+          try {
+             if (secret.includes('BEGIN CERTIFICATE')) {
+               key = await importX509(secret, alg)
+             } else {
+               key = await importSPKI(secret, alg)
+             }
+          } catch (e) {
+            setVerifyResult(false)
+            setVerifyError('Failed to parse public key/certificate PEM format.')
+            return
+          }
+        } else {
+           setVerifyResult(false)
+           setVerifyError(`Unsupported algorithm for verification: ${alg}`)
+           return
+        }
+
+        await jwtVerify(token.trim(), key)
+        setVerifyResult(true)
+        setVerifyError('')
+      } catch (e) {
+        setVerifyResult(false)
+        setVerifyError(e instanceof Error ? e.message : 'Signature verification failed.')
+      }
+    }
+    verify()
+  }, [token, secret, isValidStructure, error])
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -112,6 +163,28 @@ export default function JwtTool() {
         {header && <JsonBlock label="Header" data={header} />}
         {payload && <JsonBlock label="Payload" data={payload} />}
       </div>
+
+      {isValidStructure && !error && (
+        <div className="flex flex-col gap-3 p-4 rounded-md border border-border bg-muted/20 mt-2">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Signature Verification</span>
+            {header?.alg && <Badge variant="outline">{header.alg}</Badge>}
+          </div>
+          <Textarea
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            placeholder={header?.alg?.startsWith('HS') ? "Enter secret (HMAC key)..." : "Enter public key or certificate (PEM format)..."}
+            className="min-h-[80px] font-mono text-sm resize-none"
+            spellCheck={false}
+          />
+          {verifyResult !== null && secret.trim() && (
+            <div className={`flex items-center gap-2 text-sm font-medium ${verifyResult ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
+              {verifyResult ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+              {verifyResult ? 'Signature Verified' : `Invalid Signature: ${verifyError}`}
+            </div>
+          )}
+        </div>
+      )}
 
       {!header && !error && (
         <div className="text-center text-muted-foreground text-sm py-8">

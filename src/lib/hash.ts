@@ -1,7 +1,7 @@
 import CryptoJS from 'crypto-js'
 import bcrypt from 'bcryptjs'
 
-export type HashAlgorithm = 'MD5' | 'SHA-1' | 'SHA-256' | 'SHA-512' | 'SHA-224' | 'SHA-384' | 'bcrypt'
+export type HashAlgorithm = 'MD5' | 'SHA-1' | 'SHA-256' | 'SHA-512' | 'SHA-224' | 'SHA-384' | 'SHA-3' | 'RIPEMD-160' | 'bcrypt'
 
 export interface HashResult {
   algorithm: HashAlgorithm
@@ -19,6 +19,8 @@ export function computeHash(input: string, algorithm: HashAlgorithm): Omit<HashR
     case 'SHA-256': wa = CryptoJS.SHA256(input); break
     case 'SHA-384': wa = CryptoJS.SHA384(input); break
     case 'SHA-512': wa = CryptoJS.SHA512(input); break
+    case 'SHA-3': wa = CryptoJS.SHA3(input); break
+    case 'RIPEMD-160': wa = CryptoJS.RIPEMD160(input); break
     default: throw new Error(`Unknown algorithm: ${algorithm}`)
   }
 
@@ -29,7 +31,7 @@ export function computeHash(input: string, algorithm: HashAlgorithm): Omit<HashR
 }
 
 export async function computeAllHashes(input: string): Promise<HashResult[]> {
-  const algorithms: HashAlgorithm[] = ['MD5', 'SHA-1', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512']
+  const algorithms: HashAlgorithm[] = ['MD5', 'SHA-1', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512', 'SHA-3', 'RIPEMD-160']
   return algorithms.map((algorithm) => ({
     algorithm,
     ...computeHash(input, algorithm),

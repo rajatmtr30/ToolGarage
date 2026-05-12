@@ -3,6 +3,7 @@ import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued'
 import { useTheme } from '@/hooks/useTheme'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Upload } from 'lucide-react'
 
 const LEFT_SAMPLE = `{
   "name": "ToolGarage",
@@ -64,11 +65,26 @@ export default function DiffTool() {
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Original (before)</span>
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => prettifyJson(left, setLeft)} title="Pretty-print this side if it's JSON">
-              Prettify JSON
-            </Button>
+            <div className="flex gap-1">
+              <label className="cursor-pointer hover:bg-accent hover:text-accent-foreground h-6 px-2 text-xs inline-flex items-center justify-center rounded-md transition-colors" title="Upload a file">
+                <Upload className="h-3 w-3 mr-1" />
+                Upload
+                <input type="file" className="sr-only" onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    const reader = new FileReader()
+                    reader.onload = (ev) => setLeft((ev.target?.result as string) || '')
+                    reader.readAsText(file)
+                  }
+                  e.target.value = ''
+                }} />
+              </label>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => prettifyJson(left, setLeft)} title="Pretty-print this side if it's JSON">
+                Prettify JSON
+              </Button>
+            </div>
           </div>
           <textarea
             value={left}
@@ -78,11 +94,26 @@ export default function DiffTool() {
           />
         </div>
         <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Modified (after)</span>
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => prettifyJson(right, setRight)} title="Pretty-print this side if it's JSON">
-              Prettify JSON
-            </Button>
+            <div className="flex gap-1">
+              <label className="cursor-pointer hover:bg-accent hover:text-accent-foreground h-6 px-2 text-xs inline-flex items-center justify-center rounded-md transition-colors" title="Upload a file">
+                <Upload className="h-3 w-3 mr-1" />
+                Upload
+                <input type="file" className="sr-only" onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    const reader = new FileReader()
+                    reader.onload = (ev) => setRight((ev.target?.result as string) || '')
+                    reader.readAsText(file)
+                  }
+                  e.target.value = ''
+                }} />
+              </label>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => prettifyJson(right, setRight)} title="Pretty-print this side if it's JSON">
+                Prettify JSON
+              </Button>
+            </div>
           </div>
           <textarea
             value={right}

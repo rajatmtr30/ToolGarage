@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -7,11 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { CopyButton } from '@/components/CopyButton'
-import { Loader2, AlertTriangle, Info } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Loader2, AlertTriangle, Info, History } from 'lucide-react'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS'
 
 interface Header { key: string; value: string; enabled: boolean }
+interface EnvVar { key: string; value: string; enabled: boolean }
 
 interface Response {
   status: number
@@ -35,6 +37,61 @@ function prettyJson(str: string): string {
   }
 }
 
+function QueryParamsTab({ url, setUrl }: { url: string, setUrl: (u: string) => void }) {
+  let params: [string, string][] = []
+  let baseUrl = url
+  try {
+    const u = new URL(url)
+    params = Array.from(u.searchParams.entries())
+    u.search = ''
+    baseUrl = u.toString()
+  } catch {
+    if (url.includes('?')) {
+      const [base, ...queryParts] = url.split('?')
+      baseUrl = base
+      params = Array.from(new URLSearchParams(queryParts.join('?')).entries())
+    }
+  }
+
+  const updateParam = (i: number, key: string, value: string) => {
+    const newParams = [...params]
+    newParams[i] = [key, value]
+    const sp = new URLSearchParams()
+    newParams.forEach(([k, v]) => sp.append(k, v))
+    const spStr = sp.toString()
+    setUrl(baseUrl + (spStr ? '?' + spStr : ''))
+  }
+
+  const addParam = () => {
+    const newParams = [...params, ['', '']]
+    const sp = new URLSearchParams()
+    newParams.forEach(([k, v]) => sp.append(k, v))
+    setUrl(baseUrl + '?' + sp.toString())
+  }
+
+  const removeParam = (i: number) => {
+    const newParams = params.filter((_, idx) => idx !== i)
+    const sp = new URLSearchParams()
+    newParams.forEach(([k, v]) => sp.append(k, v))
+    const spStr = sp.toString()
+    setUrl(baseUrl + (spStr ? '?' + spStr : ''))
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {params.length === 0 && <p className="text-xs text-muted-foreground p-2">No query parameters in URL.</p>}
+      {params.map(([k, v], i) => (
+        <div key={i} className="flex items-center gap-2">
+          <Input value={k} onChange={e => updateParam(i, e.target.value, v)} placeholder="Query Parameter (e.g. page)" className="font-mono text-xs w-1/3" />
+          <Input value={v} onChange={e => updateParam(i, k, e.target.value)} placeholder="Value (e.g. 2)" className="font-mono text-xs flex-1" />
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeParam(i)} title="Remove parameter">×</Button>
+        </div>
+      ))}
+      <Button variant="outline" size="sm" onClick={addParam} className="w-fit">+ Add parameter</Button>
+    </div>
+  )
+}
+
 export default function HttpTool() {
   const [url, setUrl] = useState('https://jsonplaceholder.typicode.com/posts/1')
   const [method, setMethod] = useState<HttpMethod>('GET')
@@ -43,9 +100,36 @@ export default function HttpTool() {
     { key: 'Content-Type', value: 'application/json', enabled: true },
   ])
   const [body, setBody] = useState('')
+  const [bodyType, setBodyType] = useState<'raw' | 'graphql'>('raw')
+  const [gqlQuery, setGqlQuery] = useState('')
+  const [gqlVars, setGqlVars] = useState('{}')
+  const [auth, setAuth] = useState<{ type: 'none' | 'bearer' | 'basic', bearerToken: string, basicUser: string, basicPass: string }>({ type: 'none', bearerToken: '', basicUser: '', basicPass: '' })
   const [response, setResponse] = useState<Response | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [history, setHistory] = useState<{ id: string, method: string, url: string, date: number }[]>([])
+  const [envVars, setEnvVars] = useState<EnvVar[]>([{ key: 'baseUrl', value: 'https://jsonplaceholder.typicode.com', enabled: true }])
+
+  useEffect(() => {
+    try { setHistory(JSON.parse(localStorage.getItem('http_history') || '[]')) } catch { }
+    try {
+      const savedEnv = localStorage.getItem('http_envVars')
+      if (savedEnv) setEnvVars(JSON.parse(savedEnv))
+    } catch { }
+  }, [])
+
+  const saveEnvVars = (newVars: EnvVar[]) => {
+    setEnvVars(newVars)
+    localStorage.setItem('http_envVars', JSON.stringify(newVars))
+  }
+
+  const interpolate = (str: string) => {
+    let result = str
+    envVars.filter(v => v.enabled && v.key.trim()).forEach(v => {
+      result = result.split(`{{${v.key}}}`).join(v.value)
+    })
+    return result
+  }
 
   const addHeader = () => setHeaders((h) => [...h, { key: '', value: '', enabled: true }])
   const updateHeader = (i: number, field: keyof Header, value: string | boolean) =>
@@ -59,13 +143,30 @@ export default function HttpTool() {
     setLoading(true)
     const start = Date.now()
     try {
+      const finalUrl = interpolate(url)
       const headersObj: Record<string, string> = {}
-      headers.filter((h) => h.enabled && h.key.trim()).forEach((h) => { headersObj[h.key] = h.value })
+      headers.filter((h) => h.enabled && h.key.trim()).forEach((h) => { headersObj[interpolate(h.key)] = interpolate(h.value) })
+
+      if (auth.type === 'bearer' && auth.bearerToken) {
+        headersObj['Authorization'] = `Bearer ${interpolate(auth.bearerToken)}`
+      } else if (auth.type === 'basic' && (auth.basicUser || auth.basicPass)) {
+        headersObj['Authorization'] = `Basic ${btoa(interpolate(auth.basicUser) + ':' + interpolate(auth.basicPass))}`
+      }
+
+      let payload = body
+      if (bodyType === 'graphql') {
+        headersObj['Content-Type'] = 'application/json'
+        try {
+          payload = JSON.stringify({ query: gqlQuery, variables: JSON.parse(gqlVars || '{}') })
+        } catch {
+          throw new Error("Invalid GraphQL Variables JSON")
+        }
+      }
 
       const init: RequestInit = { method, headers: headersObj }
-      if (!['GET', 'HEAD'].includes(method) && body.trim()) init.body = body
+      if (!['GET', 'HEAD'].includes(method) && payload.trim()) init.body = interpolate(payload)
 
-      const res = await fetch(url, init)
+      const res = await fetch(finalUrl, init)
       const text = await res.text()
       const duration = Date.now() - start
       const respHeaders: Record<string, string> = {}
@@ -79,6 +180,10 @@ export default function HttpTool() {
         duration,
         size: new TextEncoder().encode(text).length,
       })
+
+      const newHistory = [{ id: Date.now().toString(), method, url, date: Date.now() }, ...history.filter(h => h.url !== url || h.method !== method)].slice(0, 30)
+      setHistory(newHistory)
+      localStorage.setItem('http_history', JSON.stringify(newHistory))
     } catch (e) {
       setError(
         e instanceof Error
@@ -91,12 +196,22 @@ export default function HttpTool() {
   }
 
   const generateCurl = () => {
-    const headerFlags = headers
-      .filter((h) => h.enabled && h.key.trim())
-      .map((h) => `-H "${h.key}: ${h.value}"`)
-      .join(' ')
-    const bodyFlag = !['GET', 'HEAD'].includes(method) && body.trim() ? `-d '${body.replace(/'/g, "\\'")}'` : ''
-    return `curl -X ${method} ${headerFlags} ${bodyFlag} "${url}"`.replace(/\s+/g, ' ').trim()
+    const finalUrl = interpolate(url)
+    const headersObj: Record<string, string> = {}
+    headers.filter((h) => h.enabled && h.key.trim()).forEach((h) => { headersObj[interpolate(h.key)] = interpolate(h.value) })
+    if (auth.type === 'bearer' && auth.bearerToken) { headersObj['Authorization'] = `Bearer ${interpolate(auth.bearerToken)}` }
+    else if (auth.type === 'basic' && (auth.basicUser || auth.basicPass)) { headersObj['Authorization'] = `Basic ${btoa(interpolate(auth.basicUser) + ':' + interpolate(auth.basicPass))}` }
+
+    let payload = body
+    if (bodyType === 'graphql') {
+      headersObj['Content-Type'] = 'application/json'
+      try { payload = JSON.stringify({ query: gqlQuery, variables: JSON.parse(gqlVars || '{}') }) } catch { }
+    }
+
+    const headerFlags = Object.entries(headersObj).map(([k, v]) => `-H "${k}: ${v}"`).join(' ')
+    const bodyStr = interpolate(payload)
+    const bodyFlag = !['GET', 'HEAD'].includes(method) && bodyStr.trim() ? `-d '${bodyStr.replace(/'/g, "\\'")}'` : ''
+    return `curl -X ${method} ${headerFlags} ${bodyFlag} "${finalUrl}"`.replace(/\s+/g, ' ').trim()
   }
 
   return (
@@ -135,14 +250,66 @@ export default function HttpTool() {
         <Button onClick={send} disabled={loading || !url.trim()} className="gap-2 min-w-20">
           {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Sending…</> : 'Send request'}
         </Button>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="icon" title="Request History"><History className="h-4 w-4" /></Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Request History</DialogTitle></DialogHeader>
+            <div className="flex flex-col gap-2 max-h-[60vh] overflow-auto">
+              {history.length === 0 && <p className="text-sm text-muted-foreground">No history yet.</p>}
+              {history.map((h) => (
+                <div key={h.id} className="flex items-center gap-3 p-2 hover:bg-muted/30 cursor-pointer rounded-md border border-border/50" onClick={() => { setMethod(h.method as any); setUrl(h.url) }}>
+                  <Badge variant="outline" className="w-16 justify-center shrink-0">{h.method}</Badge>
+                  <span className="text-sm font-mono truncate flex-1">{h.url}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{new Date(h.date).toLocaleTimeString()}</span>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <Tabs defaultValue="headers">
+      <Tabs defaultValue="headers" onValueChange={(v) => {
+        if (v === 'body') setBodyType('raw')
+        if (v === 'graphql') setBodyType('graphql')
+      }}>
         <TabsList>
+          <TabsTrigger value="params">Query Params</TabsTrigger>
+          <TabsTrigger value="auth">Auth</TabsTrigger>
           <TabsTrigger value="headers">Request headers ({headers.filter((h) => h.enabled).length})</TabsTrigger>
           {!['GET', 'HEAD'].includes(method) && <TabsTrigger value="body">Request body</TabsTrigger>}
+          {['POST'].includes(method) && <TabsTrigger value="graphql">GraphQL</TabsTrigger>}
+          <TabsTrigger value="env">Variables ({envVars.filter((v) => v.enabled).length})</TabsTrigger>
           <TabsTrigger value="curl">As cURL</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="params" className="mt-3">
+          <QueryParamsTab url={url} setUrl={setUrl} />
+        </TabsContent>
+
+        <TabsContent value="auth" className="mt-3 flex flex-col gap-4 max-w-lg">
+          <Select value={auth.type} onValueChange={(v: any) => setAuth({ ...auth, type: v })}>
+            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Auth</SelectItem>
+              <SelectItem value="bearer">Bearer Token</SelectItem>
+              <SelectItem value="basic">Basic Auth</SelectItem>
+            </SelectContent>
+          </Select>
+          {auth.type === 'bearer' && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Token</Label>
+              <Input value={auth.bearerToken} onChange={(e) => setAuth({ ...auth, bearerToken: e.target.value })} placeholder="eyJhbGciOiJIUzI1NiIs..." className="font-mono text-sm" />
+            </div>
+          )}
+          {auth.type === 'basic' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5"><Label>Username</Label><Input value={auth.basicUser} onChange={(e) => setAuth({ ...auth, basicUser: e.target.value })} /></div>
+              <div className="flex flex-col gap-1.5"><Label>Password</Label><Input type="password" value={auth.basicPass} onChange={(e) => setAuth({ ...auth, basicPass: e.target.value })} /></div>
+            </div>
+          )}
+        </TabsContent>
 
         <TabsContent value="headers" className="mt-3 flex flex-col gap-2">
           {headers.map((h, i) => (
@@ -161,12 +328,53 @@ export default function HttpTool() {
             <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder={'Request body — JSON, form data, raw text, anything you like.\n\ne.g. { "name": "ToolGarage" }'}
-              className="min-h-[120px] font-mono text-sm resize-none"
+              placeholder={'Request body — JSON, form data, raw text, anything you like.\n\ne.g. { "name": "ToolGarage", "url": "{{baseUrl}}" }'}
+              className="min-h-[160px] font-mono text-sm resize-none"
               spellCheck={false}
             />
           </TabsContent>
         )}
+
+        {['POST'].includes(method) && (
+          <TabsContent value="graphql" className="mt-3 grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Query</Label>
+              <Textarea
+                value={gqlQuery}
+                onChange={(e) => setGqlQuery(e.target.value)}
+                placeholder={'query {\n  users {\n    id\n    name\n  }\n}'}
+                className="min-h-[160px] font-mono text-sm resize-none"
+                spellCheck={false}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Variables (JSON)</Label>
+              <Textarea
+                value={gqlVars}
+                onChange={(e) => setGqlVars(e.target.value)}
+                placeholder={'{\n  "id": 1\n}'}
+                className="min-h-[160px] font-mono text-sm resize-none"
+                spellCheck={false}
+              />
+            </div>
+          </TabsContent>
+        )}
+
+        <TabsContent value="env" className="mt-3 flex flex-col gap-2">
+          <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
+            <Info className="h-3.5 w-3.5" />
+            Define variables and use them anywhere as {"{{variable_name}}"}.
+          </div>
+          {envVars.map((v, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input type="checkbox" checked={v.enabled} onChange={(e) => saveEnvVars(envVars.map((row, idx) => idx === i ? { ...row, enabled: e.target.checked } : row))} className="shrink-0" title="Toggle this variable on/off" />
+              <Input value={v.key} onChange={(e) => saveEnvVars(envVars.map((row, idx) => idx === i ? { ...row, key: e.target.value } : row))} placeholder="Variable name (e.g. baseUrl)" className="font-mono text-xs w-1/3" />
+              <Input value={v.value} onChange={(e) => saveEnvVars(envVars.map((row, idx) => idx === i ? { ...row, value: e.target.value } : row))} placeholder="Value (e.g. https://api.example.com)" className="font-mono text-xs flex-1" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => saveEnvVars(envVars.filter((_, idx) => idx !== i))} title="Remove this variable">×</Button>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" onClick={() => saveEnvVars([...envVars, { key: '', value: '', enabled: true }])} className="w-fit">+ Add another variable</Button>
+        </TabsContent>
 
         <TabsContent value="curl" className="mt-3 flex flex-col gap-2">
           <div className="flex items-center gap-2">

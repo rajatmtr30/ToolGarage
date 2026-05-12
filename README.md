@@ -1,6 +1,6 @@
 # ToolGarage — All-in-One Developer Toolkit
 
-A single-page, fully **offline** developer toolkit with 22+ utilities. Every formatter, encoder, crypto operation, and generator runs **inside your browser** — your data never leaves the page.
+A single-page, fully **offline** developer toolkit with 23+ utilities. Every formatter, encoder, crypto operation, and generator runs **inside your browser** — your data never leaves the page.
 
 > Think of it as the developer workshop you keep next to your terminal: every little tool you reach for ten times a day, in one tidy place.
 
@@ -13,7 +13,7 @@ A single-page, fully **offline** developer toolkit with 22+ utilities. Every for
 | **Encoders** | Base64 Workshop (text + file), URL Encoder, JWT Inspector, Case Switcher |
 | **Crypto** | AES Cipher (CBC / GCM / CTR), Jasypt for Spring (PBEWithMD5AndDES + PBEWITHHMACSHA512ANDAES_256), RSA Toolbox, Hash Lab (MD5 / SHA / bcrypt / HMAC) |
 | **Generators** | ID Generator (UUID / ULID), Mock Data, QR Code, Color Studio, Cron Builder |
-| **Converters** | Time Machine (epoch ⇄ ISO ⇄ timezone), JSON ⇄ YAML ⇄ XML |
+| **Converters** | Time Machine (epoch ⇄ ISO ⇄ timezone), Data Converter (JSON ⇄ YAML ⇄ XML ⇄ TOML ⇄ CSV) |
 | **Testers** | Regex Playground, HTTP Sandbox |
 
 Press **Ctrl+K** / **⌘K** anywhere to jump to any tool instantly.

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { XMLParser, XMLBuilder } from 'fast-xml-parser'
+import { XMLParser, XMLBuilder, XMLValidator } from 'fast-xml-parser'
 import { CodeEditor } from '@/components/CodeEditor'
 import { IOPanel } from '@/components/IOPanel'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,10 @@ import { Badge } from '@/components/ui/badge'
 const SAMPLE = `<?xml version="1.0" encoding="UTF-8"?><root><name>ToolGarage</name><tools><tool>JSON Studio</tool><tool>Mermaid Diagrams</tool><tool>AES Cipher</tool></tools><meta><author>developer-team</author><year>2026</year></meta></root>`
 
 function formatXml(xml: string): string {
+  const validation = XMLValidator.validate(xml)
+  if (validation !== true) {
+    throw new Error(`XML validation failed: ${validation.err.msg} (Line: ${validation.err.line})`)
+  }
   const parser = new XMLParser({
     ignoreAttributes: false,
     preserveOrder: true,

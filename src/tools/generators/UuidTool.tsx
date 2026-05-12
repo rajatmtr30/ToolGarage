@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { v1 as uuidv1, v4 as uuidv4 } from 'uuid'
+import { v1 as uuidv1, v4 as uuidv4, v7 as uuidv7 } from 'uuid'
 import { ulid } from 'ulid'
 import { CopyButton } from '@/components/CopyButton'
 import { Button } from '@/components/ui/button'
@@ -9,13 +9,26 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { RefreshCw, Trash2 } from 'lucide-react'
 
-type IdType = 'uuid-v1' | 'uuid-v4' | 'ulid'
+const nanoidAlphabet = 'useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict'
+function nanoid(size = 21) {
+  const bytes = new Uint8Array(size)
+  crypto.getRandomValues(bytes)
+  let id = ''
+  for (let i = 0; i < size; i++) {
+    id += nanoidAlphabet[bytes[i] & 63]
+  }
+  return id
+}
+
+type IdType = 'uuid-v1' | 'uuid-v4' | 'uuid-v7' | 'ulid' | 'nanoid'
 
 function generate(type: IdType): string {
   switch (type) {
     case 'uuid-v1': return uuidv1()
     case 'uuid-v4': return uuidv4()
+    case 'uuid-v7': return uuidv7()
     case 'ulid': return ulid()
+    case 'nanoid': return nanoid()
   }
 }
 
@@ -38,7 +51,9 @@ export default function UuidTool() {
   const TYPE_DESCRIPTIONS: Record<IdType, string> = {
     'uuid-v1': 'UUID v1 — embeds the current timestamp + machine info. Sortable but leaks when/where it was generated.',
     'uuid-v4': 'UUID v4 — fully random and the safe default for most apps. 122 bits of entropy.',
+    'uuid-v7': 'UUID v7 — time-ordered UUID. Combines a timestamp with random data for better DB locality.',
     'ulid': 'ULID — 26-char, lexicographically sortable, URL-safe. Great for primary keys you want sorted by time.',
+    'nanoid': 'NanoID — 21-char, URL-safe string. Compact and fast, great for public IDs.',
   }
 
   return (
@@ -57,8 +72,10 @@ export default function UuidTool() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="uuid-v4">UUID v4 — random</SelectItem>
+              <SelectItem value="uuid-v7">UUID v7 — time-ordered</SelectItem>
               <SelectItem value="uuid-v1">UUID v1 — time-based</SelectItem>
               <SelectItem value="ulid">ULID — sortable</SelectItem>
+              <SelectItem value="nanoid">NanoID — compact</SelectItem>
             </SelectContent>
           </Select>
         </div>

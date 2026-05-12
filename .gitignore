@@ -1,8 +1,10 @@
 node_modules
-
+dist
 # testing
 /coverage
 /node_modules
+/dist
+
 
 /.npmrc
 

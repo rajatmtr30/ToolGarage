@@ -2,13 +2,14 @@ import { useState, useCallback } from 'react'
 import { colord, extend } from 'colord'
 import namesPlugin from 'colord/plugins/names'
 import hwbPlugin from 'colord/plugins/hwb'
+import a11yPlugin from 'colord/plugins/a11y'
 import { CopyButton } from '@/components/CopyButton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
 
-extend([namesPlugin, hwbPlugin])
+extend([namesPlugin, hwbPlugin, a11yPlugin])
 
 interface ColorFormats {
   hex: string
@@ -57,8 +58,68 @@ function ColorRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+function ContrastCard({ bg, fg }: { bg: string; fg: string }) {
+  const ratio = colord(bg).contrast(fg)
+  const aaNormal = ratio >= 4.5
+  const aaLarge = ratio >= 3
+  const aaaNormal = ratio >= 7
+  const aaaLarge = ratio >= 4.5
+
+  return (
+    <div className="flex flex-col rounded-md border border-border overflow-hidden">
+      <div className="flex items-center justify-center p-4 text-center" style={{ backgroundColor: bg, color: fg }}>
+        <div className="flex flex-col gap-1">
+          <span className="text-3xl font-bold font-sans">Aa</span>
+          <span className="text-xs font-medium opacity-90">{ratio.toFixed(2)} : 1</span>
+        </div>
+      </div>
+      <div className="bg-muted/10 p-3 grid grid-cols-2 gap-2 text-xs border-t border-border">
+        <div className="flex flex-col">
+          <span className="text-muted-foreground">AA Normal</span>
+          <span className={aaNormal ? "text-green-600 dark:text-green-400 font-semibold" : "text-destructive font-semibold"}>{aaNormal ? "Pass" : "Fail"}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-muted-foreground">AA Large</span>
+          <span className={aaLarge ? "text-green-600 dark:text-green-400 font-semibold" : "text-destructive font-semibold"}>{aaLarge ? "Pass" : "Fail"}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-muted-foreground">AAA Normal</span>
+          <span className={aaaNormal ? "text-green-600 dark:text-green-400 font-semibold" : "text-destructive font-semibold"}>{aaaNormal ? "Pass" : "Fail"}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-muted-foreground">AAA Large</span>
+          <span className={aaaLarge ? "text-green-600 dark:text-green-400 font-semibold" : "text-destructive font-semibold"}>{aaaLarge ? "Pass" : "Fail"}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function randomHex(): string {
   return `#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0')}`
+}
+
+function PaletteDisplay({ title, colors, onSelect }: { title: string, colors: string[], onSelect: (c: string) => void }) {
+  return (
+    <div className="flex flex-col gap-1.5 border border-border rounded-md p-3 bg-muted/10">
+      <span className="text-xs font-medium text-muted-foreground">{title}</span>
+      <div className="flex rounded-md overflow-hidden h-10">
+        {colors.map((c, i) => (
+          <button
+            key={i}
+            className="flex-1 transition-transform hover:scale-105 hover:z-10 group relative"
+            style={{ backgroundColor: c }}
+            onClick={() => onSelect(c)}
+            title={c.toUpperCase()}
+          >
+             <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block text-[10px] bg-popover border border-border rounded px-1 whitespace-nowrap font-mono shadow-sm">
+                {c.toUpperCase()}
+             </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function ColorTool() {
@@ -83,6 +144,13 @@ export default function ColorTool() {
     const hsl = colord(pickerValue).toHsl()
     return colord({ ...hsl, l: lightnessTarget }).toHex()
   }) : []
+
+  const palettes = color ? {
+    Complementary: [color.hex, colord(pickerValue).rotate(180).toHex()],
+    Analogous: [colord(pickerValue).rotate(-30).toHex(), color.hex, colord(pickerValue).rotate(30).toHex()],
+    Triadic: [color.hex, colord(pickerValue).rotate(120).toHex(), colord(pickerValue).rotate(240).toHex()],
+    Tetradic: [color.hex, colord(pickerValue).rotate(90).toHex(), colord(pickerValue).rotate(180).toHex(), colord(pickerValue).rotate(270).toHex()]
+  } : null
 
   return (
     <div className="flex h-full flex-col gap-4 max-w-xl">
@@ -130,6 +198,14 @@ export default function ColorTool() {
           </div>
 
           <div className="flex flex-col gap-1.5">
+            <Label>WCAG Contrast Checker</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <ContrastCard bg="#FFFFFF" fg={color.hex} />
+              <ContrastCard bg="#000000" fg={color.hex} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <Label>Shade ramp — click any swatch to switch to it</Label>
             <div className="grid grid-cols-9 gap-1">
               {shades.map((shade, i) => (
@@ -147,6 +223,17 @@ export default function ColorTool() {
               ))}
             </div>
           </div>
+
+          {palettes && (
+            <div className="flex flex-col gap-2 mt-2">
+              <Label>Generated Palettes</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(palettes).map(([name, colors]) => (
+                  <PaletteDisplay key={name} title={name} colors={colors} onSelect={handlePickerChange} />
+                ))}
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <p className="text-muted-foreground text-sm">Enter a valid color and we'll show every common format.</p>

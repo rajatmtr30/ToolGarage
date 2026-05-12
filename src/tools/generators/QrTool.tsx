@@ -12,6 +12,8 @@ function GenerateTab() {
   const [input, setInput] = useState('https://example.com')
   const [errorLevel, setErrorLevel] = useState<'L' | 'M' | 'Q' | 'H'>('M')
   const [size, setSize] = useState('256')
+  const [darkColor, setDarkColor] = useState('#000000')
+  const [lightColor, setLightColor] = useState('#ffffff')
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [error, setError] = useState('')
 
@@ -23,6 +25,7 @@ function GenerateTab() {
         errorCorrectionLevel: errorLevel,
         width: parseInt(size),
         margin: 2,
+        color: { dark: darkColor, light: lightColor }
       })
       setQrDataUrl(url)
     } catch (e) {
@@ -36,6 +39,25 @@ function GenerateTab() {
     a.href = qrDataUrl
     a.download = 'qrcode.png'
     a.click()
+  }
+
+  const downloadSvg = async () => {
+    if (!input.trim()) return
+    try {
+      const svgStr = await QRCode.toString(input, {
+        type: 'svg',
+        errorCorrectionLevel: errorLevel,
+        width: parseInt(size),
+        margin: 2,
+        color: { dark: darkColor, light: lightColor }
+      })
+      const blob = new Blob([svgStr], { type: 'image/svg+xml' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'qrcode.svg'
+      a.click()
+    } catch {}
   }
 
   return (
@@ -74,18 +96,38 @@ function GenerateTab() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={generate} disabled={!input.trim()}>Generate QR code</Button>
+        <div className="flex flex-col gap-1.5">
+          <Label>Foreground</Label>
+          <div className="flex gap-2 items-center">
+            <input type="color" value={darkColor} onChange={(e) => setDarkColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer p-0 border-0" />
+            <Input value={darkColor} onChange={(e) => setDarkColor(e.target.value)} className="w-20 font-mono text-xs h-8 px-2" />
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Background</Label>
+          <div className="flex gap-2 items-center">
+            <input type="color" value={lightColor} onChange={(e) => setLightColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer p-0 border-0" />
+            <Input value={lightColor} onChange={(e) => setLightColor(e.target.value)} className="w-20 font-mono text-xs h-8 px-2" />
+          </div>
+        </div>
+        <Button onClick={generate} disabled={!input.trim()} className="mb-[2px]">Generate QR</Button>
       </div>
 
       {error && <p className="text-destructive text-sm">{error}</p>}
 
       {qrDataUrl && (
-        <div className="flex flex-col items-start gap-3">
-          <img src={qrDataUrl} alt="Generated QR code" className="rounded-lg border border-border" style={{ width: Math.min(parseInt(size), 300) }} />
-          <Button variant="outline" size="sm" onClick={download} className="gap-2">
-            <Download className="h-3.5 w-3.5" />
-            Download as PNG
-          </Button>
+        <div className="flex flex-col items-start gap-3 mt-2">
+          <img src={qrDataUrl} alt="Generated QR code" className="rounded-lg border border-border shadow-sm" style={{ width: Math.min(parseInt(size), 300) }} />
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={download} className="gap-2">
+              <Download className="h-3.5 w-3.5" />
+              Download PNG
+            </Button>
+            <Button variant="outline" size="sm" onClick={downloadSvg} className="gap-2">
+              <Download className="h-3.5 w-3.5" />
+              Download SVG
+            </Button>
+          </div>
         </div>
       )}
     </div>

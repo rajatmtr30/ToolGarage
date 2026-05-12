@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Download } from 'lucide-react'
 
 function LoremTab() {
   const [mode, setMode] = useState<'words' | 'sentences' | 'paragraphs'>('paragraphs')
@@ -98,6 +99,22 @@ function FakeDataTab() {
     const lines = rows.map((r) => selected.map((k) => `"${r[k]}"`).join(','))
     return [headers, ...lines].join('\n')
   }
+  const toSql = () => {
+    if (!rows.length) return ''
+    const table = 'mock_data'
+    const headers = selected.map(h => `"${h.replace(/ /g, '_').toLowerCase()}"`).join(', ')
+    return rows.map((r) => {
+      const values = selected.map((k) => `'${r[k].replace(/'/g, "''")}'`).join(', ')
+      return `INSERT INTO ${table} (${headers}) VALUES (${values});`
+    }).join('\n')
+  }
+
+  const downloadFile = (content: string, filename: string) => {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([content], { type: 'text/plain' }))
+    a.download = filename
+    a.click()
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -123,10 +140,20 @@ function FakeDataTab() {
         </div>
         <Button onClick={generate} disabled={selected.length === 0}>Generate rows</Button>
         {rows.length > 0 && (
-          <>
-            <CopyButton text={toJson()} size="sm" />
-            <CopyButton text={toCsv()} size="sm" />
-          </>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => downloadFile(toJson(), 'mock-data.json')} className="gap-2" title="Download as JSON">
+              <Download className="h-3.5 w-3.5" />
+              JSON
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => downloadFile(toCsv(), 'mock-data.csv')} className="gap-2" title="Download as CSV">
+              <Download className="h-3.5 w-3.5" />
+              CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => downloadFile(toSql(), 'mock-data.sql')} className="gap-2" title="Download as SQL">
+              <Download className="h-3.5 w-3.5" />
+              SQL
+            </Button>
+          </div>
         )}
       </div>
       {rows.length > 0 && (

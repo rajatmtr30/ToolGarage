@@ -1,19 +1,23 @@
 import { useState } from 'react'
 import yaml from 'js-yaml'
-import { XMLParser, XMLBuilder } from 'fast-xml-parser'
+import { XMLParser, XMLBuilder, XMLValidator } from 'fast-xml-parser'
 import { CodeEditor } from '@/components/CodeEditor'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CopyButton } from '@/components/CopyButton'
 import { ArrowRight } from 'lucide-react'
+import * as Papa from 'papaparse'
+import * as toml from '@iarna/toml'
 
-type Format = 'json' | 'yaml' | 'xml'
+type Format = 'json' | 'yaml' | 'xml' | 'toml' | 'csv'
 
 const LANGUAGE_MAP: Record<Format, string> = {
   json: 'json',
   yaml: 'yaml',
   xml: 'xml',
+  toml: 'ini',
+  csv: 'plaintext',
 }
 
 const SAMPLES: Record<Format, string> = {
@@ -43,19 +47,40 @@ meta:
     <item>JSON</item>
     <item>YAML</item>
     <item>XML</item>
+    <item>TOML</item>
+    <item>CSV</item>
   </tools>
   <meta>
     <author>developer-team</author>
     <year>2026</year>
   </meta>
 </root>`,
+  toml: `name = "ToolGarage"
+version = "1.0"
+tools = ["JSON", "YAML", "XML", "TOML", "CSV"]
+
+[meta]
+author = "developer-team"
+year = 2026`,
+  csv: `name,version,author,year
+ToolGarage,1.0,developer-team,2026`
 }
 
 function parseInput(input: string, format: Format): unknown {
   switch (format) {
     case 'json': return JSON.parse(input)
     case 'yaml': return yaml.load(input)
+    case 'toml': return toml.parse(input)
+    case 'csv': {
+      const res = Papa.parse(input.trim(), { header: true, dynamicTyping: true, skipEmptyLines: true })
+      if (res.errors.length && !res.data.length) throw new Error(res.errors[0].message)
+      return res.data
+    }
     case 'xml': {
+      const validation = XMLValidator.validate(input)
+      if (validation !== true) {
+        throw new Error(`XML validation failed: ${validation.err.msg} (Line: ${validation.err.line})`)
+      }
       const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: true, trimValues: true })
       return parser.parse(input)
     }
@@ -66,6 +91,21 @@ function serializeOutput(data: unknown, format: Format): string {
   switch (format) {
     case 'json': return JSON.stringify(data, null, 2)
     case 'yaml': return yaml.dump(data, { indent: 2, lineWidth: 120, noRefs: true })
+    case 'toml': {
+      try {
+        return toml.stringify(data as any)
+      } catch (e) {
+        throw new Error("Cannot convert this structure to TOML (e.g. contains nested arrays of mixed types, or null values)")
+      }
+    }
+    case 'csv': {
+      let arr = data
+      if (!Array.isArray(arr)) {
+         if (typeof arr === 'object' && arr !== null) arr = [arr]
+         else throw new Error("CSV requires an array of objects or an object")
+      }
+      return Papa.unparse(arr as any)
+    }
     case 'xml': {
       const builder = new XMLBuilder({ ignoreAttributes: false, format: true, indentBy: '  ', suppressEmptyNode: false })
       return builder.build(data)
@@ -114,8 +154,8 @@ export default function DataConverterTool() {
   return (
     <div className="flex h-full flex-col gap-3">
       <div>
-        <h1 className="text-lg font-semibold">JSON ⇄ YAML ⇄ XML</h1>
-        <p className="text-xs text-muted-foreground">Convert configuration and payloads between JSON, YAML and XML in a single click.</p>
+        <h1 className="text-lg font-semibold">Data Converter</h1>
+        <p className="text-xs text-muted-foreground">Convert configuration and payloads between JSON, YAML, XML, TOML, and CSV.</p>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -127,6 +167,8 @@ export default function DataConverterTool() {
               <SelectItem value="json">JSON</SelectItem>
               <SelectItem value="yaml">YAML</SelectItem>
               <SelectItem value="xml">XML</SelectItem>
+              <SelectItem value="toml">TOML</SelectItem>
+              <SelectItem value="csv">CSV</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -141,6 +183,8 @@ export default function DataConverterTool() {
               <SelectItem value="json">JSON</SelectItem>
               <SelectItem value="yaml">YAML</SelectItem>
               <SelectItem value="xml">XML</SelectItem>
+              <SelectItem value="toml">TOML</SelectItem>
+              <SelectItem value="csv">CSV</SelectItem>
             </SelectContent>
           </Select>
         </div>

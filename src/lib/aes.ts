@@ -23,7 +23,7 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes
 }
 
-function bytesToHex(bytes: Uint8Array): string {
+export function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
@@ -98,4 +98,27 @@ export function generateRandomHex(bytes: number): string {
   const arr = new Uint8Array(bytes)
   crypto.getRandomValues(arr)
   return bytesToHex(arr)
+}
+
+export async function deriveKeyPBKDF2(
+  passphrase: string,
+  saltHex: string,
+  iterations: number,
+  keySize: KeySize
+): Promise<string> {
+  const enc = new TextEncoder()
+  const passKey = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(passphrase),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  )
+  const salt = hexToBytes(saltHex)
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: salt as unknown as BufferSource, iterations, hash: 'SHA-256' },
+    passKey,
+    keySize
+  )
+  return bytesToHex(new Uint8Array(bits))
 }

@@ -67,6 +67,37 @@ export default function MermaidTool() {
     URL.revokeObjectURL(url)
   }
 
+  const downloadPng = () => {
+    if (!svg) return
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    
+    const img = new Image()
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    
+    img.onload = () => {
+       canvas.width = img.width * 2
+       canvas.height = img.height * 2
+       if (resolvedTheme === 'dark') {
+          ctx.fillStyle = '#1e1e1e' // dark background
+       } else {
+          ctx.fillStyle = '#ffffff' // light background
+       }
+       ctx.fillRect(0, 0, canvas.width, canvas.height)
+       ctx.scale(2, 2)
+       ctx.drawImage(img, 0, 0)
+       
+       const a = document.createElement('a')
+       a.download = 'diagram.png'
+       a.href = canvas.toDataURL('image/png')
+       a.click()
+       URL.revokeObjectURL(url)
+    }
+    img.src = url
+  }
+
   return (
     <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -77,8 +108,11 @@ export default function MermaidTool() {
         <div className="flex items-center gap-2">
           {error && <Badge variant="destructive">Render error</Badge>}
           <Button variant="outline" size="sm" onClick={() => setInput(SAMPLE)} title="Load a sample flowchart">Load sample</Button>
-          <Button variant="outline" size="sm" onClick={downloadSvg} disabled={!svg} className="gap-1.5" title="Download the rendered diagram">
-            <Download className="h-3.5 w-3.5" /> Download SVG
+          <Button variant="outline" size="sm" onClick={downloadSvg} disabled={!svg} className="gap-1.5" title="Download SVG">
+            <Download className="h-3.5 w-3.5" /> SVG
+          </Button>
+          <Button variant="outline" size="sm" onClick={downloadPng} disabled={!svg} className="gap-1.5" title="Download PNG">
+            <Download className="h-3.5 w-3.5" /> PNG
           </Button>
         </div>
       </div>

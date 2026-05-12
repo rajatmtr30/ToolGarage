@@ -19,23 +19,22 @@ export type JasyptAlgorithm = 'PBEWithMD5AndDES' | 'PBEWITHHMACSHA512ANDAES_256'
 // Jasypt uses 1000 iterations by default
 
 function deriveKeyDes(password: string, salt: CryptoJS.lib.WordArray, iterations: number) {
-  let key = CryptoJS.lib.WordArray.create([])
-  let block = CryptoJS.lib.WordArray.create([])
-  while (key.sigBytes < 24) {
-    block = CryptoJS.MD5(block.concat(CryptoJS.enc.Utf8.parse(password)).concat(salt))
-    for (let i = 1; i < iterations; i++) block = CryptoJS.MD5(block)
-    key = key.concat(block)
+  const block = CryptoJS.lib.WordArray.create()
+  block.concat(CryptoJS.enc.Utf8.parse(password))
+  block.concat(salt)
+  let hash = CryptoJS.MD5(block)
+  for (let i = 1; i < iterations; i++) {
+    hash = CryptoJS.MD5(hash)
   }
-  key.sigBytes = 24
-  return key
+  return hash
 }
 
 export function jasyptEncryptDes(plaintext: string, password: string, iterations = 1000): string {
   const saltWords = CryptoJS.lib.WordArray.random(8)
-  const key = deriveKeyDes(password, saltWords, iterations)
-  const iv = CryptoJS.lib.WordArray.create(key.words.slice(6, 8), 8)
-  const keyTrimmed = CryptoJS.lib.WordArray.create(key.words.slice(0, 6), 24)
-  const encrypted = CryptoJS.TripleDES.encrypt(plaintext, keyTrimmed, {
+  const hash = deriveKeyDes(password, saltWords, iterations)
+  const key = CryptoJS.lib.WordArray.create(hash.words.slice(0, 2), 8)
+  const iv = CryptoJS.lib.WordArray.create(hash.words.slice(2, 4), 8)
+  const encrypted = CryptoJS.DES.encrypt(plaintext, key, {
     iv,
     mode: CryptoJS.mode.CBC,
     padding: CryptoJS.pad.Pkcs7,
@@ -48,12 +47,12 @@ export function jasyptDecryptDes(cipherBase64: string, password: string, iterati
   const combined = CryptoJS.enc.Base64.parse(cipherBase64)
   const saltWords = CryptoJS.lib.WordArray.create(combined.words.slice(0, 2), 8)
   const ciphertext = CryptoJS.lib.WordArray.create(combined.words.slice(2), combined.sigBytes - 8)
-  const key = deriveKeyDes(password, saltWords, iterations)
-  const iv = CryptoJS.lib.WordArray.create(key.words.slice(6, 8), 8)
-  const keyTrimmed = CryptoJS.lib.WordArray.create(key.words.slice(0, 6), 24)
-  const decrypted = CryptoJS.TripleDES.decrypt(
+  const hash = deriveKeyDes(password, saltWords, iterations)
+  const key = CryptoJS.lib.WordArray.create(hash.words.slice(0, 2), 8)
+  const iv = CryptoJS.lib.WordArray.create(hash.words.slice(2, 4), 8)
+  const decrypted = CryptoJS.DES.decrypt(
     { ciphertext } as CryptoJS.lib.CipherParams,
-    keyTrimmed,
+    key,
     { iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
   )
   return decrypted.toString(CryptoJS.enc.Utf8)
