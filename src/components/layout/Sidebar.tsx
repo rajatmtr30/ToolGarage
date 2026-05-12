@@ -143,7 +143,8 @@ export function Sidebar({ className, onClose }: SidebarProps) {
       </ScrollArea>
 
       <div className="border-t border-border px-3 py-2">
-        <p className="text-[10px] text-muted-foreground">ToolGarage v1.0 · runs entirely in your browser</p>
+        <p className="text-[10px] text-muted-foreground mb-1">ToolGarage v1.0 · runs entirely in your browser</p>
+        <p className="text-[10px] text-muted-foreground font-medium">Developed by Rajat Sharma</p>
       </div>
     </aside>
   )

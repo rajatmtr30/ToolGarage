@@ -140,3 +140,10 @@ cd Utility
 npm install
 npm run build
 ```
+
+---
+
+<p align="center">
+  <b>Developed by Rajat Sharma</b><br>
+  <i>Built with React, Tailwind CSS, and lots of ☕</i>
+</p>
