@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom'
 import { Shell } from '@/components/layout/Shell'
 import { lazy, Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
+import { AnalyticsTracker } from '@/components/AnalyticsTracker'
 
 // Formatters
 const JsonTool = lazy(() => import('@/tools/formatters/JsonTool'))
@@ -54,6 +55,7 @@ function Loading() {
 export default function App() {
   return (
     <HashRouter>
+      <AnalyticsTracker />
       <Routes>
         <Route path="/" element={<Shell />}>
           <Route index element={<Suspense fallback={<Loading />}><Home /></Suspense>} />
