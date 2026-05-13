@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { TOOLS, TOOL_CATEGORIES } from '@/routes'
 import { useUIStore } from '@/store/uiStore'
+import { trackEvent } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -39,6 +40,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   const handleSelect = (path: string, id: string) => {
     addRecentTool(id)
+    const tool = TOOLS.find((t) => t.id === id)
+    if (tool) {
+      trackEvent('Tool', 'Select_CommandPalette', tool.name)
+    }
     navigate(path)
     onClose()
   }
