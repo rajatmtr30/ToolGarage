@@ -3,6 +3,7 @@ import { RotateCcw, ArrowLeftRight, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CopyButton } from '@/components/CopyButton'
 import { cn } from '@/lib/utils'
+import { analytics } from '@/lib/analytics'
 
 interface IOPanelProps {
   inputLabel?: string
@@ -69,7 +70,10 @@ export function IOPanel({
                 </Button>
               )}
               {onDownload && (
-                <Button variant="ghost" size="sm" onClick={onDownload} className="h-6 px-2 text-xs gap-1">
+                <Button variant="ghost" size="sm" onClick={() => {
+                  analytics.ux('download_output')
+                  onDownload()
+                }} className="h-6 px-2 text-xs gap-1">
                   <Download className="h-3 w-3" />
                   Download
                 </Button>

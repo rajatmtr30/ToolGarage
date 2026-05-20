@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { jasyptEncrypt, jasyptDecrypt, type JasyptAlgorithm } from '@/lib/jasypt'
+import { analytics } from '@/lib/analytics'
 import { PrivacyBanner } from '@/components/PrivacyBanner'
 import { CopyButton } from '@/components/CopyButton'
 import { Button } from '@/components/ui/button'
@@ -48,8 +49,10 @@ export default function JasyptTool() {
       const iters = Math.max(1, parseInt(iterations) || 1000)
       if (operation === 'encrypt') {
         setOutput(await jasyptEncrypt(input, password, algorithm, iters))
+        analytics.crypto('jasypt_encrypt', { algorithm: 'Jasypt', success: true })
       } else {
         setOutput(await jasyptDecrypt(input.trim(), password, algorithm, iters))
+        analytics.crypto('jasypt_decrypt', { algorithm: 'Jasypt', success: true })
       }
     } catch (e) {
       setError(

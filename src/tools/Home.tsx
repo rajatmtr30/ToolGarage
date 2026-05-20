@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { TOOLS, TOOL_CATEGORIES } from '@/routes'
 import { useUIStore } from '@/store/uiStore'
-import { trackEvent } from '@/lib/analytics'
+import { analytics } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 import type { ToolDefinition, ToolCategory } from '@/types'
 
@@ -87,7 +87,7 @@ function ToolCard({ tool }: { tool: ToolDefinition }) {
       to={tool.path}
       onClick={() => {
         addRecentTool(tool.id)
-        trackEvent('Tool', 'Click_Home', tool.name)
+        analytics.toolUsage('recent_tool_click', { tool_name: tool.name, source: 'home' })
       }}
       className="group flex items-start gap-3 rounded-xl border border-border bg-card p-3.5 transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md active:translate-y-0"
     >

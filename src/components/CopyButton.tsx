@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { analytics } from '@/lib/analytics'
 
 interface CopyButtonProps {
   text: string
@@ -16,6 +17,7 @@ export function CopyButton({ text, className, size = 'sm' }: CopyButtonProps) {
     if (!text) return
     await navigator.clipboard.writeText(text)
     setCopied(true)
+    analytics.ux('copy_output', { length: text.length })
     setTimeout(() => setCopied(false), 2000)
   }
 

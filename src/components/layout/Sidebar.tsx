@@ -8,7 +8,7 @@ import {
 import { useState } from 'react'
 import { TOOLS, TOOL_CATEGORIES } from '@/routes'
 import { useUIStore } from '@/store/uiStore'
-import { trackEvent } from '@/lib/analytics'
+import { analytics } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
@@ -34,7 +34,7 @@ function ToolItem({ tool, onClose }: { tool: ToolDefinition; onClose?: () => voi
       to={tool.path}
       onClick={() => {
         addRecentTool(tool.id)
-        trackEvent('Tool', 'Click_Sidebar', tool.name)
+        analytics.ux('sidebar_tool_click', { tool_name: tool.name })
         onClose?.()
       }}
       className={({ isActive }) =>

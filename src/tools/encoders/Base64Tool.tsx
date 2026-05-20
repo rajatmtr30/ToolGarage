@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { analytics } from '@/lib/analytics'
 import { FileDrop } from '@/components/FileDrop'
 import { CopyButton } from '@/components/CopyButton'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ import './Base64Tool.css'
 function TextTab() {
   const [input, setInput] = useState('')
   const [mode, setMode] = useState<'encode' | 'decode'>('encode')
+  const [hasTracked, setHasTracked] = useState(false)
   const [error, setError] = useState('')
 
   const [output, setOutput] = useState('')
@@ -25,8 +27,16 @@ function TextTab() {
     try {
       if (mode === 'encode') {
         setOutput(btoa(unescape(encodeURIComponent(input))))
+        if (!hasTracked) {
+          analytics.converter('base64_encode', { tool_name: 'Base64Tool' })
+          setHasTracked(true)
+        }
       } else {
         setOutput(decodeURIComponent(escape(atob(input.trim()))))
+        if (!hasTracked) {
+          analytics.converter('base64_decode', { tool_name: 'Base64Tool' })
+          setHasTracked(true)
+        }
       }
       setError('')
     } catch {
@@ -45,13 +55,13 @@ function TextTab() {
         <Button
           variant={mode === 'encode' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => setMode('encode')}
+          onClick={() => { setMode('encode'); setHasTracked(false); }}
           title={BASE64_TOOL_STRINGS.ENCODE_TITLE}
         >{BASE64_TOOL_STRINGS.ENCODE}</Button>
         <Button
           variant={mode === 'decode' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => setMode('decode')}
+          onClick={() => { setMode('decode'); setHasTracked(false); }}
           title={BASE64_TOOL_STRINGS.DECODE_TITLE}
         >{BASE64_TOOL_STRINGS.DECODE}</Button>
         <Button variant="ghost" size="sm" onClick={() => { setInput(''); setError('') }} title={BASE64_TOOL_STRINGS.CLEAR_TITLE}>{COMMON_STRINGS.CLEAR}</Button>
@@ -99,6 +109,7 @@ function FileTab() {
     if (isBase64 && typeof content === 'string') {
       setFileName(name)
       setB64(content.split(',')[1] ?? content)
+      analytics.converter('base64_encode', { tool_name: 'Base64Tool', type: 'file' })
     }
   }
 

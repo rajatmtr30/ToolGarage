@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { aesEncrypt, aesDecrypt, generateRandomHex, deriveKeyPBKDF2, type AesMode, type KeySize } from '@/lib/aes'
+import { analytics } from '@/lib/analytics'
 import { PrivacyBanner } from '@/components/PrivacyBanner'
 import { CopyButton } from '@/components/CopyButton'
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,7 @@ export default function AesTool() {
     setOutput('')
     if (!input.trim()) return
     setLoading(true)
+    const startTime = performance.now()
     try {
       let finalKey = key
       if (keyType === 'pbkdf2') {
@@ -48,15 +50,42 @@ export default function AesTool() {
 
       if (operation === 'encrypt') {
         setOutput(await aesEncrypt(input, finalKey, iv, mode))
+        analytics.crypto('encrypt_action', {
+          algorithm: `AES_${mode}`,
+          mode: mode,
+          key_size: keySize,
+          success: true,
+          execution_time_ms: Math.round(performance.now() - startTime)
+        })
       } else {
         setOutput(await aesDecrypt(input.trim(), finalKey, iv, mode))
+        analytics.crypto('decrypt_action', {
+          algorithm: `AES_${mode}`,
+          mode: mode,
+          key_size: keySize,
+          success: true,
+          execution_time_ms: Math.round(performance.now() - startTime)
+        })
       }
     } catch (e) {
-      setError(
-        e instanceof Error
+      const errMsg = e instanceof Error
           ? `${operation === 'encrypt' ? 'Encryption' : 'Decryption'} failed: ${e.message}`
           : `${operation === 'encrypt' ? 'Encryption' : 'Decryption'} failed — double-check the key, IV and mode all match.`
-      )
+      setError(errMsg)
+      
+      analytics.crypto(operation === 'encrypt' ? 'encrypt_action' : 'decrypt_action', {
+        algorithm: `AES_${mode}`,
+        mode: mode,
+        key_size: keySize,
+        success: false,
+        execution_time_ms: Math.round(performance.now() - startTime)
+      })
+
+      analytics.error('tool_exception', {
+        tool_name: 'AesTool',
+        error_message: e instanceof Error ? e.message : 'Unknown error',
+        action: operation
+      })
     } finally {
       setLoading(false)
     }

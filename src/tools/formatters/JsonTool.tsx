@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { analytics } from '@/lib/analytics'
 import { jsonrepair } from 'jsonrepair'
 import Ajv from 'ajv'
 import { CodeEditor } from '@/components/CodeEditor'
@@ -109,14 +110,34 @@ export default function JsonTool() {
 
   const handleValidateSchema = () => {
     if (!schemaInput.trim() || parsedObj === null) return
+    const startTime = performance.now()
     try {
       const ajv = new Ajv({ allErrors: true })
       const schema = JSON.parse(schemaInput)
       const validate = ajv.compile(schema)
       const valid = validate(parsedObj)
       setSchemaResult({ valid, errors: validate.errors || [] })
+      
+      analytics.formatter('format_json', {
+        tool_name: 'JsonTool',
+        input_size: input.length,
+        success: valid,
+        execution_time_ms: Math.round(performance.now() - startTime)
+      })
+      if (!valid) {
+        analytics.error('validation_failed', {
+          tool_name: 'JsonTool',
+          error_message: 'JSON failed schema validation',
+          action: 'validate_schema'
+        })
+      }
     } catch (e) {
       setSchemaResult({ valid: false, errors: [{ message: `Schema error: ${e instanceof Error ? e.message : 'Invalid JSON schema'}` }] })
+      analytics.error('validation_failed', {
+        tool_name: 'JsonTool',
+        error_message: e instanceof Error ? e.message : 'Invalid JSON schema',
+        action: 'validate_schema_compile'
+      })
     }
   }
 
@@ -129,37 +150,78 @@ export default function JsonTool() {
       setRepaired(false)
       return
     }
+    const startTime = performance.now()
     try {
       const parsed = JSON.parse(input)
       setParsedObj(parsed)
       setOutput(JSON.stringify(parsed, null, indent === 'tab' ? '\t' : Number(indent)))
       setTsOutput(jsonToTs('RootObject', parsed))
       setError('')
+      
+      analytics.formatter('format_json', {
+        tool_name: 'JsonTool',
+        input_size: input.length,
+        success: true,
+        execution_time_ms: Math.round(performance.now() - startTime)
+      })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "That doesn't look like valid JSON.")
       setOutput('')
       setTsOutput('')
       setParsedObj(null)
       setSchemaResult(null)
+      
+      analytics.formatter('format_json', {
+        tool_name: 'JsonTool',
+        input_size: input.length,
+        success: false,
+        execution_time_ms: Math.round(performance.now() - startTime)
+      })
     }
   }, [input, indent])
 
   const handleRepair = () => {
+    const startTime = performance.now()
     try {
       const rep = jsonrepair(input)
       setInput(rep)
       setRepaired(true)
+      analytics.formatter('repair_json', {
+        tool_name: 'JsonTool',
+        input_size: input.length,
+        success: true,
+        execution_time_ms: Math.round(performance.now() - startTime)
+      })
     } catch {
       setError("Couldn't auto-repair this — please fix the highlighted error manually.")
+      analytics.formatter('repair_json', {
+        tool_name: 'JsonTool',
+        input_size: input.length,
+        success: false,
+        execution_time_ms: Math.round(performance.now() - startTime)
+      })
     }
   }
 
   const handleMinify = () => {
+    const startTime = performance.now()
     try {
       const parsed = JSON.parse(input)
       setInput(JSON.stringify(parsed))
+      analytics.formatter('minify_json', {
+        tool_name: 'JsonTool',
+        input_size: input.length,
+        success: true,
+        execution_time_ms: Math.round(performance.now() - startTime)
+      })
     } catch {
       setError('Cannot minify until the JSON is valid.')
+      analytics.formatter('minify_json', {
+        tool_name: 'JsonTool',
+        input_size: input.length,
+        success: false,
+        execution_time_ms: Math.round(performance.now() - startTime)
+      })
     }
   }
 
@@ -243,7 +305,7 @@ export default function JsonTool() {
           </Tabs>
         }
         outputText={output}
-        onClear={() => { setInput(''); setError(''); setRepaired(false) }}
+        onClear={() => { setInput(''); setError(''); setRepaired(false); analytics.ux('clear_input', { tool_name: 'JsonTool' }) }}
         onSwap={() => { if (output) setInput(output) }}
         toolbar={
           <>

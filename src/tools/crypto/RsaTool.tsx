@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { generateRsaKeyPair, rsaEncrypt, rsaDecrypt, rsaSign, rsaVerify, type RsaKeySize, type RsaPadding } from '@/lib/rsa'
+import { analytics } from '@/lib/analytics'
 import { PrivacyBanner } from '@/components/PrivacyBanner'
 import { CopyButton } from '@/components/CopyButton'
 import { Button } from '@/components/ui/button'
@@ -96,6 +97,7 @@ export default function RsaTool() {
       setDecPrivKey(pair.privateKey)
       setSignPrivKey(pair.privateKey)
       setVerifyPubKey(pair.publicKey)
+      analytics.crypto('rsa_key_generate', { algorithm: 'RSA', key_size: keySize, success: true })
     } catch (e) {
       console.error(e)
     } finally {
@@ -146,7 +148,7 @@ export default function RsaTool() {
           <div className="flex flex-col gap-1"><Label>Message to encrypt</Label>
             <Textarea value={encInput} onChange={(e) => setEncInput(e.target.value)} className="min-h-[80px] font-mono text-sm resize-none" placeholder="Type or paste the text you want to send securely…" />
           </div>
-          <Button className="w-fit" onClick={() => { setEncError(''); try { setEncOutput(rsaEncrypt(encInput, encPubKey, padding)) } catch (e) { setEncError(e instanceof Error ? `Encryption failed: ${e.message}` : 'Encryption failed — check the public key format.') } }} disabled={!encInput || !encPubKey}>Encrypt with RSA-{padding}</Button>
+          <Button className="w-fit" onClick={() => { setEncError(''); try { setEncOutput(rsaEncrypt(encInput, encPubKey, padding)); analytics.crypto('encrypt_action', { algorithm: 'RSA', mode: padding, success: true }) } catch (e) { setEncError(e instanceof Error ? `Encryption failed: ${e.message}` : 'Encryption failed — check the public key format.') } }} disabled={!encInput || !encPubKey}>Encrypt with RSA-{padding}</Button>
           {(encOutput || encError) && (
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between"><Label>Ciphertext (Base64) — share this</Label>{encOutput && <CopyButton text={encOutput} size="sm" />}</div>
@@ -162,7 +164,7 @@ export default function RsaTool() {
           <div className="flex flex-col gap-1"><Label>Ciphertext (Base64)</Label>
             <Textarea value={decInput} onChange={(e) => setDecInput(e.target.value)} className="min-h-[60px] font-mono text-xs resize-none" placeholder="Paste the Base64 ciphertext you received…" />
           </div>
-          <Button className="w-fit" onClick={() => { setDecError(''); try { setDecOutput(rsaDecrypt(decInput.trim(), decPrivKey, padding)) } catch (e) { setDecError(e instanceof Error ? `Decryption failed: ${e.message}. Make sure the padding (${padding}) and key match the ones used to encrypt.` : 'Decryption failed — check the key and padding mode match.') } }} disabled={!decInput || !decPrivKey}>Decrypt with RSA-{padding}</Button>
+          <Button className="w-fit" onClick={() => { setDecError(''); try { setDecOutput(rsaDecrypt(decInput.trim(), decPrivKey, padding)); analytics.crypto('decrypt_action', { algorithm: 'RSA', mode: padding, success: true }) } catch (e) { setDecError(e instanceof Error ? `Decryption failed: ${e.message}. Make sure the padding (${padding}) and key match the ones used to encrypt.` : 'Decryption failed — check the key and padding mode match.') } }} disabled={!decInput || !decPrivKey}>Decrypt with RSA-{padding}</Button>
           {(decOutput || decError) && (
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between"><Label>Recovered message</Label>{decOutput && <CopyButton text={decOutput} size="sm" />}</div>
@@ -178,7 +180,7 @@ export default function RsaTool() {
           <div className="flex flex-col gap-1"><Label>Message to sign</Label>
             <Textarea value={signInput} onChange={(e) => setSignInput(e.target.value)} className="min-h-[80px] font-mono text-sm resize-none" placeholder="The exact message you want to sign — even one extra space changes the signature." />
           </div>
-          <Button className="w-fit" onClick={() => { setSignError(''); try { setSignature(rsaSign(signInput, signPrivKey)) } catch (e) { setSignError(e instanceof Error ? `Signing failed: ${e.message}` : 'Signing failed — check the private key format.') } }} disabled={!signInput || !signPrivKey}>Sign with SHA-256</Button>
+          <Button className="w-fit" onClick={() => { setSignError(''); try { setSignature(rsaSign(signInput, signPrivKey)); analytics.crypto('hash_generate', { algorithm: 'RSA_SIGN', success: true }) } catch (e) { setSignError(e instanceof Error ? `Signing failed: ${e.message}` : 'Signing failed — check the private key format.') } }} disabled={!signInput || !signPrivKey}>Sign with SHA-256</Button>
           {(signature || signError) && (
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between"><Label>Signature (Base64) — send alongside the message</Label>{signature && <CopyButton text={signature} size="sm" />}</div>
@@ -199,7 +201,7 @@ export default function RsaTool() {
               <Textarea value={verifySig} onChange={(e) => setVerifySig(e.target.value)} className="min-h-[80px] font-mono text-xs resize-none" placeholder="Paste the Base64 signature here…" />
             </div>
           </div>
-          <Button className="w-fit" onClick={() => { setVerifyError(''); try { setVerifyResult(rsaVerify(verifyMsg, verifySig.trim(), verifyPubKey)) } catch (e) { setVerifyError(e instanceof Error ? `Verification error: ${e.message}` : 'Verification error — check the key and signature format.'); setVerifyResult(null) } }} disabled={!verifyMsg || !verifySig || !verifyPubKey}>Verify signature</Button>
+          <Button className="w-fit" onClick={() => { setVerifyError(''); try { setVerifyResult(rsaVerify(verifyMsg, verifySig.trim(), verifyPubKey)); analytics.crypto('hash_generate', { algorithm: 'RSA_VERIFY', success: true }) } catch (e) { setVerifyError(e instanceof Error ? `Verification error: ${e.message}` : 'Verification error — check the key and signature format.'); setVerifyResult(null) } }} disabled={!verifyMsg || !verifySig || !verifyPubKey}>Verify signature</Button>
           {verifyResult !== null && !verifyError && (
             <div className={`flex items-center gap-2 text-sm font-medium ${verifyResult ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
               {verifyResult ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
